@@ -1,30 +1,47 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+`
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:travel_plan/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('TravelPost Model Tests', () {
+    test('Converts JSON data into a TravelPost object', () {
+      final json = {
+        'id': 1,
+        'title': 'Goa Beach',
+        'body': 'A beautiful beach destination.',
+      };
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      final post = TravelPost.fromJson(json);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      expect(post.id, 1);
+      expect(post.title, 'Goa Beach');
+      expect(post.description, 'A beautiful beach destination.');
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('Stores different API records correctly', () {
+      final json = {
+        'id': 2,
+        'title': 'Mountain Adventure',
+        'body': 'Explore the mountains.',
+      };
+
+      final post = TravelPost.fromJson(json);
+
+      expect(post.id, 2);
+      expect(post.title, 'Mountain Adventure');
+      expect(post.description, 'Explore the mountains.');
+    });
+
+    test('Preserves the API record ID', () {
+      final json = {
+        'id': 10,
+        'title': 'Travel Destination',
+        'body': 'Discover a new place.',
+      };
+
+      final post = TravelPost.fromJson(json);
+
+      expect(post.id, 10);
+    });
   });
 }
