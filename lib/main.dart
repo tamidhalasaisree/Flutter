@@ -1,4 +1,7 @@
- import 'package:flutter/material.dart';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const TravelPlanApp());
@@ -15,69 +18,83 @@ class TravelPlanApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.teal,
-        scaffoldBackgroundColor: const Color(0xFFF4F8F7),
+        scaffoldBackgroundColor: const Color(0xFFF5F8F7),
       ),
-      home: const AnimatedTravelScreen(),
+      home: const DestinationApiScreen(),
     );
   }
 }
 
-class AnimatedTravelScreen extends StatefulWidget {
-  const AnimatedTravelScreen({super.key});
+// Model for API response
+class TravelPost {
+  final int id;
+  final String title;
+  final String description;
 
-  @override
-  State<AnimatedTravelScreen> createState() =>
-      _AnimatedTravelScreenState();
+  const TravelPost({
+    required this.id,
+    required this.title,
+    required this.description,
+  });
+
+  factory TravelPost.fromJson(Map<String, dynamic> json) {
+    return TravelPost(
+      id: json['id'] as int,
+      title: json['title'] as String,
+      description: json['body'] as String,
+    );
+  }
 }
 
-class _AnimatedTravelScreenState extends State<AnimatedTravelScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+// Fetch data from the REST API
+class TravelApiService {
+  static Future<List<TravelPost>> fetchDestinations() async {
+    final response = await http
+        .get(
+          Uri.parse('https://jsonplaceholder.typicode.com/posts?_limit=10'),
+        )
+        .timeout(const Duration(seconds: 15));
 
-  bool _showDetails = false;
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+
+      return data
+          .map(
+            (item) => TravelPost.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          )
+          .toList();
+    } else {
+      throw Exception('Unable to load data from the API');
+    }
+  }
+}
+
+class DestinationApiScreen extends StatefulWidget {
+  const DestinationApiScreen({super.key});
+
+  @override
+  State<DestinationApiScreen> createState() =>
+      _DestinationApiScreenState();
+}
+
+class _DestinationApiScreenState extends State<DestinationApiScreen> {
+  late Future<List<TravelPost>> _destinationFuture;
 
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.25),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
-    _controller.forward();
+    _loadDestinations();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void _loadDestinations() {
+    _destinationFuture = TravelApiService.fetchDestinations();
   }
 
-  void _replayAnimation() {
-    setState(() {
-      _showDetails = false;
-    });
-
-    _controller.reset();
-    _controller.forward();
+  Future<void> _refresh() async {
+    setState(_loadDestinations);
+    await _destinationFuture;
   }
 
   @override
@@ -85,237 +102,200 @@ class _AnimatedTravelScreenState extends State<AnimatedTravelScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Travel Plan',
+          'Explore Destinations',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        centerTitle: true,
         actions: [
           IconButton(
-            tooltip: 'Replay animation',
-            onPressed: _replayAnimation,
-            icon: const Icon(Icons.replay),
+            onPressed: () {
+              setState(_loadDestinations);
+            },
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: FutureBuilder<List<TravelPost>>(
+          future: _destinationFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Discovering destinations...'),
+                  ],
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const SizedBox(height: 100),
+                  const Icon(
+                    Icons.cloud_off,
+                    size: 60,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: Text(
+                      'Unable to load destinations.',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: Text('Check your internet connection and retry.'),
+                  ),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(_loadDestinations);
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final posts = snapshot.data ?? [];
+
+            if (posts.isEmpty) {
+              return const Center(child: Text('No data available.'));
+            }
+
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(18),
               children: [
                 const Text(
-                  'Adventure Awaits!',
+                  'Find Your Next Adventure ✈️',
                   style: TextStyle(
-                    fontSize: 29,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Discover beautiful places and plan your next getaway.',
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
+                  'Destination information loaded from a REST API.',
+                  style: TextStyle(color: Colors.grey.shade700),
                 ),
-                const SizedBox(height: 25),
-
-                // Animated destination card
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.85, end: 1.0),
-                  duration: const Duration(milliseconds: 900),
-                  curve: Curves.easeOutBack,
-                  builder: (context, scale, child) {
-                    return Transform.scale(
-                      scale: scale,
-                      child: child,
-                    );
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(25),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF00796B),
-                          Color(0xFF26A69A),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.teal,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.cloud_download_outlined,
+                        size: 38,
+                        color: Colors.white,
                       ),
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.teal.withValues(alpha: 0.20),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.flight_takeoff,
-                          size: 45,
-                          color: Colors.white,
-                        ),
-                        SizedBox(height: 20),
-                        Text(
-                          'FEATURED DESTINATION',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            letterSpacing: 2,
-                            fontSize: 11,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Goa, India 🌴',
-                          style: TextStyle(
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          '${posts.length} records fetched successfully',
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 30,
+                            fontSize: 17,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: 10),
-                        Text(
-                          'Golden beaches, beautiful sunsets '
-                          'and unforgettable memories.',
-                          style: TextStyle(
-                            color: Colors.white,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-
-                const SizedBox(height: 28),
-
-                const Text(
-                  'Why Travel With Us?',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 15),
-
-                const FeatureCard(
-                  icon: Icons.explore,
-                  title: 'Explore Destinations',
-                  description: 'Discover places for your next holiday.',
-                ),
-                const FeatureCard(
-                  icon: Icons.account_balance_wallet,
-                  title: 'Smart Budget Planning',
-                  description: 'Estimate expenses before you travel.',
-                ),
-                const FeatureCard(
-                  icon: Icons.calendar_month,
-                  title: 'Flexible Trip Duration',
-                  description: 'Choose a duration that suits your plans.',
-                ),
-
                 const SizedBox(height: 20),
+                ...posts.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final post = entry.value;
 
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _showDetails = !_showDetails;
-                      });
-                    },
-                    icon: const Icon(Icons.auto_awesome),
-                    label: Text(
-                      _showDetails
-                          ? 'Hide Travel Tip'
-                          : 'Reveal Travel Tip',
-                    ),
-                  ),
-                ),
+                  final icons = [
+                    Icons.beach_access,
+                    Icons.landscape,
+                    Icons.terrain,
+                    Icons.location_city,
+                    Icons.wb_sunny,
+                  ];
 
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOut,
-                  child: _showDetails
-                      ? Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(top: 15),
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(18),
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 25,
+                            backgroundColor:
+                                Colors.teal.withValues(alpha: 0.12),
+                            child: Icon(
+                              icons[index % icons.length],
+                              color: Colors.teal,
+                            ),
                           ),
-                          child: const Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.lightbulb_outline,
-                                color: Colors.teal,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Travel tip: Plan your daily activities '
-                                  'and keep some extra money for unexpected '
-                                  'expenses.',
-                                  style: TextStyle(height: 1.5),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'API RECORD ${post.id}',
+                                  style: const TextStyle(
+                                    color: Colors.teal,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 7),
+                                Text(
+                                  post.title,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                Text(
+                                  post.description,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-
+                        ],
+                      ),
+                    ),
+                  );
+                }),
                 const SizedBox(height: 20),
+                const Center(
+                  child: Text(
+                    'Powered by REST API • JSON data',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class FeatureCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const FeatureCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: CircleAvatar(
-          backgroundColor: Colors.teal.withValues(alpha: 0.12),
-          child: Icon(icon, color: Colors.teal),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 5),
-          child: Text(description),
+            );
+          },
         ),
       ),
     );
