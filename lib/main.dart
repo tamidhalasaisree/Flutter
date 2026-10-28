@@ -10,35 +10,33 @@ void main() {
   );
 }
 
-// Shared application state using Provider
+// EXPERIMENT 5: Shared state management
 class TripProvider extends ChangeNotifier {
-  int _days = 3;
-  double _dailyBudget = 3000;
-  bool _tripSaved = false;
+  int days = 3;
+  double dailyBudget = 3000;
+  bool tripSaved = false;
 
-  int get days => _days;
-  double get dailyBudget => _dailyBudget;
-  double get totalBudget => _days * _dailyBudget;
-  bool get tripSaved => _tripSaved;
+  double get totalBudget => days * dailyBudget;
 
   void updateDays(int value) {
-    _days = value;
-    _tripSaved = false;
+    days = value;
+    tripSaved = false;
     notifyListeners();
   }
 
-  void updateDailyBudget(double value) {
-    _dailyBudget = value;
-    _tripSaved = false;
+  void updateBudget(double value) {
+    dailyBudget = value;
+    tripSaved = false;
     notifyListeners();
   }
 
   void saveTrip() {
-    _tripSaved = true;
+    tripSaved = true;
     notifyListeners();
   }
 }
 
+// EXPERIMENT 6: Application theme
 class TravelPlanApp extends StatelessWidget {
   const TravelPlanApp({super.key});
 
@@ -49,13 +47,38 @@ class TravelPlanApp extends StatelessWidget {
       title: 'Travel Plan',
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: Colors.teal,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF00796B),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF5F8F7),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF00796B),
+          foregroundColor: Colors.white,
+          centerTitle: true,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF00796B),
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
       ),
       home: const TripPlannerScreen(),
     );
   }
 }
 
+// Main screen
 class TripPlannerScreen extends StatelessWidget {
   const TripPlannerScreen({super.key});
 
@@ -69,7 +92,12 @@ class TripPlannerScreen extends StatelessWidget {
           'Travel Plan',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        centerTitle: true,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Icon(Icons.flight_takeoff),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -77,7 +105,7 @@ class TripPlannerScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Plan Your Goa Trip 🌴',
+              'Discover. Plan. Explore.',
               style: TextStyle(
                 fontSize: 27,
                 fontWeight: FontWeight.bold,
@@ -85,85 +113,58 @@ class TripPlannerScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Customize your trip and track your budget.',
+              'Your next adventure starts here.',
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: Colors.grey.shade700,
                 fontSize: 15,
               ),
             ),
-            const SizedBox(height: 25),
+            const SizedBox(height: 22),
 
-            // Destination card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Colors.teal, Colors.cyan],
-                ),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.beach_access,
-                    color: Colors.white,
-                    size: 42,
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'GOA, INDIA',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'Your next adventure',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
+            // Reusable custom destination widget
+            const DestinationCard(
+              name: 'Goa',
+              subtitle: 'Beaches, sunsets and adventures',
+              icon: Icons.beach_access,
+              color: Color(0xFF00897B),
+              tag: 'FEATURED DESTINATION',
             ),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 26),
+
+            const SectionHeading(
+              title: 'Plan Your Trip',
+              subtitle: 'Customize your travel preferences',
+            ),
+
+            const SizedBox(height: 15),
 
             const Text(
-              'Trip Duration',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              'How many days?',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // setState is demonstrated in the separate duration selector.
-            const DurationSelector(),
+            Wrap(
+              spacing: 8,
+              children: [2, 3, 4, 5, 7].map((day) {
+                return ChoiceChip(
+                  label: Text('$day Days'),
+                  selected: trip.days == day,
+                  onSelected: (selected) {
+                    if (selected) {
+                      context.read<TripProvider>().updateDays(day);
+                    }
+                  },
+                );
+              }).toList(),
+            ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 24),
 
             const Text(
               'Daily Budget',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Text(
-              '₹${trip.dailyBudget.toInt()} per day',
-              style: const TextStyle(
-                color: Colors.teal,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
 
             Slider(
@@ -173,84 +174,48 @@ class TripPlannerScreen extends StatelessWidget {
               divisions: 18,
               label: '₹${trip.dailyBudget.toInt()}',
               onChanged: (value) {
-                context.read<TripProvider>().updateDailyBudget(value);
+                context.read<TripProvider>().updateBudget(value);
               },
             ),
 
-            const SizedBox(height: 15),
-
-            // Automatically updates when Provider state changes.
-            Card(
-              elevation: 0,
-              color: Colors.teal.withValues(alpha: 0.10),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.teal,
-                      size: 35,
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Estimated Total Budget'),
-                          const SizedBox(height: 5),
-                          Text(
-                            '₹${trip.totalBudget.toInt()}',
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
-                            ),
-                          ),
-                          Text(
-                            '${trip.days} days × '
-                            '₹${trip.dailyBudget.toInt()}',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Reusable custom budget widget
+            BudgetCard(
+              days: trip.days,
+              dailyBudget: trip.dailyBudget,
+              totalBudget: trip.totalBudget,
             ),
 
             const SizedBox(height: 20),
 
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  context.read<TripProvider>().saveTrip();
+            ElevatedButton.icon(
+              onPressed: () {
+                context.read<TripProvider>().saveTrip();
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Your Goa trip has been saved!'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Save My Trip'),
-              ),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Your trip has been saved!'),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.bookmark_added),
+              label: const Text('Save My Trip'),
             ),
 
-            if (trip.tripSaved) ...[
-              const SizedBox(height: 15),
-              const Center(
-                child: Text(
-                  '✓ Trip saved successfully!',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
+            if (trip.tripSaved)
+              const Padding(
+                padding: EdgeInsets.only(top: 14),
+                child: Center(
+                  child: Text(
+                    '✓ Your trip is saved!',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ],
+
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -258,37 +223,165 @@ class TripPlannerScreen extends StatelessWidget {
   }
 }
 
-// StatefulWidget demonstrates setState for selecting duration.
-class DurationSelector extends StatefulWidget {
-  const DurationSelector({super.key});
+// CUSTOM WIDGET 1: Destination card
+class DestinationCard extends StatelessWidget {
+  final String name;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final String tag;
 
-  @override
-  State<DurationSelector> createState() => _DurationSelectorState();
-}
+  const DestinationCard({
+    super.key,
+    required this.name,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.tag,
+  });
 
-class _DurationSelectorState extends State<DurationSelector> {
   @override
   Widget build(BuildContext context) {
-    final trip = context.watch<TripProvider>();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.75)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.wb_sunny_outlined,
+            color: Colors.white70,
+            size: 26,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            tag,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Icon(icon, color: Colors.white, size: 42),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            subtitle,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [2, 3, 4, 5, 7].map((days) {
-        return ChoiceChip(
-          label: Text('$days Days'),
-          selected: trip.days == days,
-          onSelected: (selected) {
-            if (selected) {
-              setState(() {
-                // Local widget state changes.
-              });
+// CUSTOM WIDGET 2: Section heading
+class SectionHeading extends StatelessWidget {
+  final String title;
+  final String subtitle;
 
-              context.read<TripProvider>().updateDays(days);
-            }
-          },
-        );
-      }).toList(),
+  const SectionHeading({
+    super.key,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 21,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          subtitle,
+          style: TextStyle(color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+}
+
+// CUSTOM WIDGET 3: Budget summary
+class BudgetCard extends StatelessWidget {
+  final int days;
+  final double dailyBudget;
+  final double totalBudget;
+
+  const BudgetCard({
+    super.key,
+    required this.days,
+    required this.dailyBudget,
+    required this.totalBudget,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFFE0F2F1),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              backgroundColor: Color(0xFF00796B),
+              child: Icon(
+                Icons.account_balance_wallet,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Estimated Trip Budget'),
+                  const SizedBox(height: 5),
+                  Text(
+                    '₹${totalBudget.toInt()}',
+                    style: const TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF00796B),
+                    ),
+                  ),
+                  Text(
+                    '$days days × ₹${dailyBudget.toInt()}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
